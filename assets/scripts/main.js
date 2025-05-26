@@ -53,6 +53,18 @@ function initializeServiceWorker() {
   //            log that it was successful.
   // B5. TODO - In the event that the service worker registration fails, console
   //            log that it has failed.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('./sw.js')
+        .then(reg => console.log(
+          'SW registered with scope:', reg.scope
+        ))
+        .catch(err => console.error(
+          'SW registration failed:', err
+        ));
+    });
+  }
   // STEPS B6 ONWARDS WILL BE IN /sw.js
 }
 
@@ -68,15 +80,44 @@ async function getRecipes() {
   // EXPOSE - START (All expose numbers start with A)
   // A1. TODO - Check local storage to see if there are any recipes.
   //            If there are recipes, return them.
+  const stored = localStorage.getItem('recipes');
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch (_) {
+      console.warn('Could not parse stored recipes; refetching');
+      localStorage.removeItem('recipes');
+    }
+  }
   /**************************/
   // The rest of this method will be concerned with requesting the recipes
   // from the network
   // A2. TODO - Create an empty array to hold the recipes that you will fetch
+  const recipes = [];
   // A3. TODO - Return a new Promise. If you are unfamiliar with promises, MDN
   //            has a great article on them. A promise takes one parameter - A
   //            function (we call these callback functions). That function will
   //            take two parameters - resolve, and reject. These are functions
   //            you can call to either resolve the Promise or Reject it.
+  return new Promise(async(resolve, reject) => {
+  for (const url of RECIPE_URLS) {
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          recipes.push(data);
+
+          if (recipes.length === RECIPE_URLS.length) {
+            saveRecipesToStorage(recipes);
+            resolve(recipes);
+          }
+        } catch (err) {
+          console.error('Error fetching', url, err);
+          reject(err);
+          return;
+        }
+      }
+  });
   /**************************/
   // A4-A11 will all be *inside* the callback function we passed to the Promise
   // we're returning
